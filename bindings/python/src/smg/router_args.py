@@ -97,8 +97,6 @@ class RouterArgs:
     model_path: str | None = None
     tokenizer_path: str | None = None
     chat_template: str | None = None
-    # Override/alias the model name exposed to clients (while backend loads from model_path)
-    served_model_name: str | None = None
     # Tokenizer cache configuration
     tokenizer_cache_enable_l0: bool = False
     tokenizer_cache_l0_max_entries: int = 10000
@@ -670,6 +668,7 @@ class RouterArgs:
         # Tokenizer configuration
         tokenizer_group.add_argument(
             f"--{prefix}model-path",
+            f"--{prefix}model",
             type=str,
             default=None,
             help="Model path for loading tokenizer (HuggingFace model ID or local path)",
@@ -685,17 +684,6 @@ class RouterArgs:
             type=str,
             default=None,
             help="Chat template path (optional)",
-        )
-        tokenizer_group.add_argument(
-            f"--{prefix}served-model-name",
-            type=str,
-            default=None,
-            help=(
-                "Override the model name exposed to clients. When set, requests using this "
-                "name are routed to the worker even though the backend was loaded from "
-                "model_path. Both the original name (from backend discovery) and this alias "
-                "will be accepted."
-            ),
         )
         tokenizer_group.add_argument(
             f"--{prefix}tokenizer-cache-enable-l0",
@@ -988,9 +976,14 @@ class RouterArgs:
         args_dict = {}
 
         for attr in dataclasses.fields(cls):
-            # Auto strip prefix from args
-            if f"{prefix}{attr.name}" in cli_args_dict:
-                args_dict[attr.name] = cli_args_dict[f"{prefix}{attr.name}"]
+            # Auto strip prefix from args.
+            # Prefer the prefixed version (e.g. --router-model-path) when
+            # explicitly set, but fall back to the unprefixed version
+            # (e.g. --model-path from the backend) when the prefixed key
+            # exists but is None (argparse default).
+            prefixed_key = f"{prefix}{attr.name}"
+            if prefixed_key in cli_args_dict and cli_args_dict[prefixed_key] is not None:
+                args_dict[attr.name] = cli_args_dict[prefixed_key]
             elif attr.name in cli_args_dict:
                 args_dict[attr.name] = cli_args_dict[attr.name]
 
