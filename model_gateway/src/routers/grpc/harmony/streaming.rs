@@ -283,15 +283,14 @@ impl HarmonyStreamingProcessor {
                     // Finalize parser and emit final chunk
                     if let Some(parser) = parsers.get_mut(&index) {
                         let matched_stop = matched_stops.get(&index).and_then(|m| m.clone());
-                        let final_output = parser.finalize(
-                            complete_wrapper.finish_reason().to_string(),
-                            matched_stop.clone(),
-                        );
+
+                        let final_output =
+                            parser.finalize(complete_wrapper.finish_reason().to_string());
 
                         Self::emit_final_chunk(
                             index,
                             &final_output.finish_reason,
-                            final_output.matched_stop.as_ref(),
+                            matched_stop.as_ref(),
                             dispatch,
                             original_request,
                             tx,
@@ -547,8 +546,8 @@ impl HarmonyStreamingProcessor {
             HashMap::new();
 
         // Metadata from Complete message; seed cached_tokens from prefill phase (dual-stream)
-        let mut finish_reason = String::from("stop");
-        let mut matched_stop: Option<serde_json::Value> = None;
+        let mut finish_reason: String;
+        let mut finalized_analysis: Option<String> = None;
         let mut prompt_tokens: u32 = 0;
         let mut completion_tokens: u32 = 0;
         let mut cached_tokens: u32 = prefill_cached_tokens;
@@ -784,7 +783,6 @@ impl HarmonyStreamingProcessor {
                 ProtoResponseVariant::Complete(complete_wrapper) => {
                     // Store final metadata
                     finish_reason = complete_wrapper.finish_reason().to_string();
-                    matched_stop = complete_wrapper.matched_stop_json();
                     prompt_tokens = complete_wrapper.prompt_tokens();
                     // Combine decode-stream cached_tokens with any prefill cached_tokens
                     cached_tokens = cached_tokens.saturating_add(complete_wrapper.cached_tokens());
@@ -795,10 +793,12 @@ impl HarmonyStreamingProcessor {
                     }
 
                     // Finalize parser and get complete output
-                    let final_output = parser.finalize(finish_reason.clone(), matched_stop.clone());
+                    // Responses API: no user-specified stop sequences
+                    let final_output = parser.finalize(finish_reason.clone());
 
-                    // Store finalized tool calls and reasoning token count
-                    accumulated_tool_calls.clone_from(&final_output.commentary);
+                    // Store finalized output for later use
+                    finalized_analysis = final_output.analysis;
+                    accumulated_tool_calls = final_output.commentary;
                     reasoning_token_count = final_output.reasoning_token_count;
 
                     // Complete all tool calls if we have commentary
@@ -1011,10 +1011,7 @@ impl HarmonyStreamingProcessor {
         if let Some(tool_calls) = accumulated_tool_calls {
             if !tool_calls.is_empty() {
                 let analysis_content = if has_analysis {
-                    // Get analysis from finalized parser output by calling finalize again
-                    // This is safe because finalize can be called multiple times
-                    let output = parser.finalize(finish_reason.clone(), matched_stop.clone());
-                    output.analysis
+                    finalized_analysis
                 } else {
                     None
                 };
