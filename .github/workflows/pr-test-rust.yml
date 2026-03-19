@@ -97,6 +97,13 @@ jobs:
           rm -rf crates/grpc_client/python/dist/
           cd crates/grpc_client/python && python -m build
 
+      - name: Build Go protos
+        run: |
+          sudo apt-get update && sudo apt-get install -y protobuf-compiler
+          cd crates/grpc_client/golang
+          go mod tidy
+          make build
+
       - name: Test import
         run: |
           pip install crates/grpc_client/python/dist/*.whl
