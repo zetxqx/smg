@@ -104,6 +104,16 @@ jobs:
           go mod tidy
           make build
 
+          # Check that generated files are checked in and up-to-date
+          git diff --exit-code || (echo "Generated go proto code is out of date. Please run 'make build' in 'crates/grpc_client/golang' and commit the changes" && return 1 2>/dev/null || false)
+
+          # Verify nothing untracked was created that should be tracked
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Untracked files were created during go proto generation. Please check them in."
+            git status --porcelain
+            return 1 2>/dev/null || false
+          fi
+
       - name: Test import
         run: |
           pip install crates/grpc_client/python/dist/*.whl

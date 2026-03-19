@@ -15,14 +15,18 @@ if ! command -v protoc &> /dev/null; then
     return 1 2>/dev/null || true
 fi
 
+# Pin versions for reproducible builds
+PROTOC_GEN_GO_VERSION="v1.36.11"
+PROTOC_GEN_GO_GRPC_VERSION="v1.5.1"
+
 if ! command -v protoc-gen-go &> /dev/null; then
     echo "protoc-gen-go not found. Installing..."
-    go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+    go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}
 fi
 
 if ! command -v protoc-gen-go-grpc &> /dev/null; then
     echo "protoc-gen-go-grpc not found. Installing..."
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}
 fi
 
 # Need to update paths since go mod was init in base dir
