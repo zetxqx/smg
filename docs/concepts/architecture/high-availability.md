@@ -418,6 +418,9 @@ spec:
           name: mesh
 ```
 
+!!! tip "Engine images"
+    For all-in-one deployments where each pod runs both gateway and engine, use an engine image tag (e.g., `ghcr.io/lightseekorg/smg:{smg_version}-{engine}-{engine_version}`). See [Getting Started](../../getting-started/index.md#install) for available tags.
+
 ### Headless Service
 
 ```yaml
